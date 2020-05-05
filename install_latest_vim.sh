@@ -133,6 +133,7 @@ LATEST_VER="$(git describe --tags)"
 if [[ "${CURRENT_VER}" != "${LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
   make distclean
   git checkout "${LATEST_VER}"
+
   ./configure \
     --prefix="${VIM_DIR}" \
     --enable-luainterp \
@@ -144,6 +145,7 @@ if [[ "${CURRENT_VER}" != "${LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
     --disable-netbeans \
     --enable-fail-if-missing \
     --enable-cscope
+
   if make; then
     make install
     echo "${LATEST_VER}" | tee "${VIM_VER_TXT}"
@@ -156,6 +158,8 @@ fi
 if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
   DEIN_VIM_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
+  VIM_PLUGIN_UPDATE="${VIM_DIR}/bin/vim-plugin-update"
+
   if [[ -d "${DEIN_VIM_DIR}" ]]; then
     cd "${DEIN_VIM_DIR}"
     if [[ ${FORCE} -eq 0 ]]; then
@@ -166,10 +170,22 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   else
     git clone https://github.com/Shougo/dein.vim "${DEIN_VIM_DIR}"
   fi
+
   "${DEIN_VIM_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
+
   if [[ -f "${VIMRC}" ]]; then
-    "${VIM_DIR}/bin/vim" \
-      -c 'try | call dein#update() | finally | qall! | endtry' \
-      -N -u "${VIMRC}" -U NONE -i NONE -V1 -e -s
+    if [[ ! -f "${VIM_PLUGIN_UPDATE}" ]] || [[ ${FORCE} -eq 1 ]]; then
+      {
+        echo '#!/usr/bin/env bash'
+        echo
+        echo 'set -eux'
+        echo
+        echo "${VIM_DIR}/bin/vim \\"
+        echo "  -c 'try | call dein#update() | finally | qall! | endtry' \\"
+        echo "  -N -u ${VIMRC} -U NONE -i NONE -V1 -e -s"
+      } > "${VIM_PLUGIN_UPDATE}"
+      chmod +x "${VIM_PLUGIN_UPDATE}"
+    fi
+    "${VIM_PLUGIN_UPDATE}"
   fi
 fi
