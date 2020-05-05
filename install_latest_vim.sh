@@ -186,6 +186,6 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
       } > "${VIM_PLUGIN_UPDATE}"
       chmod +x "${VIM_PLUGIN_UPDATE}"
     fi
-    "${VIM_PLUGIN_UPDATE}"
+    "${VIM_PLUGIN_UPDATE}" || :
   fi
 fi
