@@ -3,19 +3,20 @@
 # Build and install the latest version of Vim
 #
 # Usage:
-#   install_latest_vim.sh [--debug] [-f|--force] [--dein] [<dir>]
+#   install_latest_vim.sh [--debug] [-f|--force] [--dein] [--vimrc=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
 #
 # Options:
-#   --debug       Run wdebug mode
-#   -f, --force   Option without an argument
-#   --dein        Install dein.vim
-#   --version     Print version
-#   -h, --help    Print usage
+#   --debug         Run wdebug mode
+#   -f, --force     Option without an argument
+#   --dein          Install dein.vim
+#   --vimrc=<path>  Specify a path to vimrc [default: ~/.vimrc]
+#   --version       Print version
+#   -h, --help      Print usage
 #
 # Arguments:
-#   <dir>         Path to a directory where Vim is installed [default: ~/.vim]
+#   <dir>           Directory path where Vim is installed [default: ~/.vim]
 
 set -euo pipefail
 
@@ -32,6 +33,7 @@ COMMAND_VERSION='v0.0.1'
 FORCE=0
 INSTALL_DEIN=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
+VIMRC="${HOME}/.vimrc"
 MAIN_ARGS=()
 
 function print_version {
@@ -59,11 +61,17 @@ while [[ ${#} -ge 1 ]]; do
     '--debug' )
       shift 1
       ;;
+    '-f' | '--force' )
+      FORCE=1 && shift 1
+      ;;
     '--dein' )
       INSTALL_DEIN=1 && shift 1
       ;;
-    '-f' | '--force' )
-      FORCE=1 && shift 1
+    '--vimrc' )
+      VIMRC="${2}" && shift 2
+      ;;
+    --vimrc=* )
+      VIMRC="${1#*\=}" && shift 1
       ;;
     '--version' )
       print_version && exit 0
@@ -148,7 +156,6 @@ fi
 if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
   DEIN_VIM_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
-  VIMRC="${HOME}/.vimrc"
   if [[ -d "${DEIN_VIM_DIR}" ]]; then
     cd "${DEIN_VIM_DIR}"
     if [[ ${FORCE} -eq 0 ]]; then
@@ -158,8 +165,8 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
     fi
   else
     git clone https://github.com/Shougo/dein.vim "${DEIN_VIM_DIR}"
-    "${DEIN_VIM_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
   fi
+  "${DEIN_VIM_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
   if [[ -f "${VIMRC}" ]]; then
     "${VIM_DIR}/bin/vim" \
       -c 'try | call dein#update() | finally | qall! | endtry' \
