@@ -3,13 +3,14 @@
 # Build and install the latest version of Vim
 #
 # Usage:
-#   install_latest_vim.sh [--debug] [-f|--force] [<dir>]
+#   install_latest_vim.sh [--debug] [-f|--force] [--dein] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
 #
 # Options:
 #   --debug       Run wdebug mode
 #   -f, --force   Option without an argument
+#   --dein        Install dein.vim
 #   --version     Print version
 #   -h, --help    Print usage
 #
@@ -28,8 +29,9 @@ COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
 COMMAND_VERSION='v0.0.1'
 
-DEFAULT_VIM_DIR="${HOME}/.vim"
 FORCE=0
+INSTALL_DEIN=0
+DEFAULT_VIM_DIR="${HOME}/.vim"
 MAIN_ARGS=()
 
 function print_version {
@@ -56,6 +58,9 @@ while [[ ${#} -ge 1 ]]; do
   case "${1}" in
     '--debug' )
       shift 1
+      ;;
+    '--dein' )
+      INSTALL_DEIN=1 && shift 1
       ;;
     '-f' | '--force' )
       FORCE=1 && shift 1
@@ -137,5 +142,27 @@ if [[ "${CURRENT_VER}" != "${LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
     cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_DIR}/bin"
   else
     make distclean && exit 1
+  fi
+fi
+
+if [[ ${INSTALL_DEIN} -eq 1 ]]; then
+  VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
+  DEIN_VIM_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
+  VIMRC="${HOME}/.vimrc"
+  if [[ -d "${DEIN_VIM_DIR}" ]]; then
+    cd "${DEIN_VIM_DIR}"
+    if [[ ${FORCE} -eq 0 ]]; then
+      git pull --prune
+    else
+      git fetch --prune && git reset --hard origin/master
+    fi
+  else
+    git clone https://github.com/Shougo/dein.vim "${DEIN_VIM_DIR}"
+    "${DEIN_VIM_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
+  fi
+  if [[ -f "${VIMRC}" ]]; then
+    "${VIM_DIR}/bin/vim" \
+      -c 'try | call dein#update() | finally | qall! | endtry' \
+      -N -u "${VIMRC}" -U NONE -i NONE -V1 -e -s
   fi
 fi
