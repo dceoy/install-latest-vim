@@ -100,11 +100,6 @@ else
   VIM_DIR="${DEFAULT_VIM_DIR}"
 fi
 PATH="${VIM_DIR}/bin:${PATH}"
-#if [[ -v 'LD_LIBRARY_PATH' ]]; then
-#  LD_LIBRARY_PATH="${VIM_DIR}/lib:${LD_LIBRARY_PATH}"
-#else
-#  LD_LIBRARY_PATH="${VIM_DIR}/lib"
-#fi
 VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_DIR="${VIM_DIR}/src"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
@@ -139,9 +134,7 @@ else
   LUA_FTP_URL='https://www.lua.org/ftp'
   LUA_TAR_GZ=$(curl -sSL "${LUA_FTP_URL}" | grep -oe 'lua-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz' | head -1)
   VIM_SRC_LUA_DIR="${VIM_SRC_DIR}/${LUA_TAR_GZ%.tar.gz}"
-  if [[ -d "${VIM_SRC_LUA_DIR}" ]]; then
-    cd "${VIM_SRC_LUA_DIR}"
-  else
+  if [[ ! -d "${VIM_SRC_LUA_DIR}" ]]; then
     cd "${VIM_SRC_DIR}"
     curl -sSLO "${LUA_FTP_URL}/${LUA_TAR_GZ}"
     tar xvf "${LUA_TAR_GZ}" && rm -f "${LUA_TAR_GZ}"
@@ -160,22 +153,19 @@ if [[ -d "${VIM_SRC_VIM_DIR}/.git" ]]; then
   VIM_CURRENT_VER="$(git describe --tags)"
   git fetch --prune
 else
-  VIM_CURRENT_VER=""
+  VIM_CURRENT_VER=''
   git clone https://github.com/vim/vim.git "${VIM_SRC_VIM_DIR}"
   cd "${VIM_SRC_VIM_DIR}"
 fi
 VIM_LATEST_VER="$(git describe --tags)"
-
-# Dein
 if [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
   make distclean
   git checkout "${VIM_LATEST_VER}"
-
   ./configure \
     --prefix="${VIM_DIR}" \
     --enable-fail-if-missing \
-    --enable-luainterp=yes \
-    --enable-python3interp=yes \
+    --enable-luainterp \
+    --enable-python3interp \
     --enable-cscope \
     --enable-terminal \
     --enable-multibyte \
@@ -183,7 +173,6 @@ if [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; th
     --enable-largefile \
     --with-features=huge \
     "${ADD_VIM_CONFIGURE_ARGS[@]}"
-
   if make; then
     make install
     echo "${VIM_LATEST_VER}" | tee "${VIM_VER_TXT}"
@@ -193,11 +182,11 @@ if [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; th
   fi
 fi
 
+# Dein
 if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
   DEIN_VIM_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
   VIM_PLUGIN_UPDATE="${VIM_DIR}/bin/vim-plugin-update"
-
   if [[ -d "${DEIN_VIM_DIR}" ]]; then
     cd "${DEIN_VIM_DIR}"
     if [[ ${FORCE} -eq 0 ]]; then
@@ -208,9 +197,7 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   else
     git clone https://github.com/Shougo/dein.vim "${DEIN_VIM_DIR}"
   fi
-
   "${DEIN_VIM_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
-
   if [[ -f "${VIMRC}" ]]; then
     if [[ ! -f "${VIM_PLUGIN_UPDATE}" ]] || [[ ${FORCE} -eq 1 ]]; then
       {

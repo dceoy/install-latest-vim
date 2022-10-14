@@ -1,0 +1,19 @@
+---
+version: '3'
+
+services:
+  vim:
+    container_name: vim
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dceoy/vim:latest
+    user: ${UID}:${GID}
+    userns_mode: host
+    volumes:
+      - ${PWD}:/wd
+    working_dir: /wd
+    entrypoint:
+      - /usr/local/bin/vim
+    command:
+      - --version
