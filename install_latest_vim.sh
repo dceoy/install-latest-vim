@@ -3,7 +3,7 @@
 # Build and install the latest version of Vim
 #
 # Usage:
-#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--luajit] [--dein]
+#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--dein]
 #     [--vimrc=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
@@ -12,7 +12,6 @@
 #   --debug         Run wdebug mode
 #   -f, --force     Option without an argument
 #   --lua           Install Lua
-#   --luajit        Install LuaJIT
 #   --dein          Install dein.vim
 #   --vimrc=<path>  Specify a path to vimrc [default: ~/.vimrc]
 #   --version       Print version
@@ -31,11 +30,10 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VERSION='v0.0.2'
+COMMAND_VERSION='v0.1.0'
 
 FORCE=0
 INSTALL_LUA=0
-INSTALL_LUAJIT=0
 INSTALL_DEIN=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
 VIMRC="${HOME}/.vimrc"
@@ -71,9 +69,6 @@ while [[ ${#} -ge 1 ]]; do
       ;;
     '--lua' )
       INSTALL_LUA=1 && shift 1
-      ;;
-    '--luajit' )
-      INSTALL_LUAJIT=1 && shift 1
       ;;
     '--dein' )
       INSTALL_DEIN=1 && shift 1
@@ -130,7 +125,7 @@ else
 fi
 
 # Lua
-if [[ ${INSTALL_LUA} -eq 0 ]] && [[ ${INSTALL_LUAJIT} -eq 0 ]]; then
+if [[ ${INSTALL_LUA} -eq 0 ]]; then
   case "${OSTYPE}" in
     darwin*)
       ADD_VIM_CONFIGURE_ARGS=('--with-lua-prefix=/usr/local')
@@ -141,40 +136,20 @@ if [[ ${INSTALL_LUA} -eq 0 ]] && [[ ${INSTALL_LUAJIT} -eq 0 ]]; then
   esac
 else
   ADD_VIM_CONFIGURE_ARGS=("--with-lua-prefix=${VIM_DIR}")
-  if [[ ${INSTALL_LUA} -ne 0 ]]; then
-    LUA_FTP_URL='https://www.lua.org/ftp'
-    LUA_TAR_GZ=$(curl -sSL "${LUA_FTP_URL}" | grep -oe 'lua-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz' | head -1)
-    VIM_SRC_LUA_DIR="${VIM_SRC_DIR}/${LUA_TAR_GZ%.tar.gz}"
-    if [[ -d "${VIM_SRC_LUA_DIR}" ]]; then
-      cd "${VIM_SRC_LUA_DIR}"
+  LUA_FTP_URL='https://www.lua.org/ftp'
+  LUA_TAR_GZ=$(curl -sSL "${LUA_FTP_URL}" | grep -oe 'lua-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz' | head -1)
+  VIM_SRC_LUA_DIR="${VIM_SRC_DIR}/${LUA_TAR_GZ%.tar.gz}"
+  if [[ -d "${VIM_SRC_LUA_DIR}" ]]; then
+    cd "${VIM_SRC_LUA_DIR}"
+  else
+    cd "${VIM_SRC_DIR}"
+    curl -sSLO "${LUA_FTP_URL}/${LUA_TAR_GZ}"
+    tar xvf "${LUA_TAR_GZ}" && rm -f "${LUA_TAR_GZ}"
+    cd "${VIM_SRC_LUA_DIR}"
+    if make all test; then
+      make install INSTALL_TOP="${VIM_DIR}"
     else
-      cd "${VIM_SRC_DIR}"
-      curl -sSLO "${LUA_FTP_URL}/${LUA_TAR_GZ}"
-      tar xvf "${LUA_TAR_GZ}" && rm -f "${LUA_TAR_GZ}"
-      cd "${VIM_SRC_LUA_DIR}"
-      if make all test; then
-        make install INSTALL_TOP="${VIM_DIR}"
-      else
-        rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
-      fi
-    fi
-  elif [[ ${INSTALL_LUAJIT} -ne 0 ]]; then
-    ADD_VIM_CONFIGURE_ARGS+=('--with-luajit')
-    LUAJIT_DL_URL='http://luajit.org/download.html'
-    LUAJIT_TAR_GZ=$(curl -sSL "${LUAJIT_DL_URL}" | grep -oe 'LuaJIT-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz' | head -1)
-    VIM_SRC_LUAJIT_DIR="${VIM_SRC_DIR}/${LUAJIT_TAR_GZ%.tar.gz}"
-    if [[ -d "${VIM_SRC_LUAJIT_DIR}" ]]; then
-      cd "${VIM_SRC_LUAJIT_DIR}"
-    else
-      cd "${VIM_SRC_DIR}"
-      curl -sSLO "${LUAJIT_DL_URL%.*}/${LUAJIT_TAR_GZ}"
-      tar xvf "${LUAJIT_TAR_GZ}" && rm -f "${LUAJIT_TAR_GZ}"
-      cd "${VIM_SRC_LUAJIT_DIR}"
-      if make; then
-        make install INSTALL_TOP="${VIM_DIR}"
-      else
-        rm -rf "${VIM_SRC_LUAJIT_DIR}" && exit 1
-      fi
+      rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
     fi
   fi
 fi
