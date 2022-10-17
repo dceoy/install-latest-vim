@@ -99,12 +99,13 @@ if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
 else
   VIM_DIR="${DEFAULT_VIM_DIR}"
 fi
-PATH="${VIM_DIR}/bin:${PATH}"
+PATH="${VIM_DIR}/bin:/usr/bin:${PATH}"
 VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_DIR="${VIM_DIR}/src"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
 VIM_SRC_ILV_DIR="${VIM_SRC_DIR}/install-latest-vim"
 
+[[ "${OSTYPE}" != 'msys' ]] || git config --global core.autocrlf false
 [[ -d "${VIM_SRC_DIR}" ]] || mkdir -p "${VIM_SRC_DIR}"
 
 # install-latest-vim
@@ -121,16 +122,15 @@ fi
 
 # Lua
 if [[ ${INSTALL_LUA} -eq 0 ]]; then
-  case "${OSTYPE}" in
-    darwin*)
-      ADD_VIM_CONFIGURE_ARGS=('--with-lua-prefix=/usr/local')
-      ;;
-    linux*)
-      ADD_VIM_CONFIGURE_ARGS=()
-      ;;
-  esac
+  if [[ -f '/usr/local/bin/lua' ]]; then
+    ADD_VIM_CONFIGURE_ARGS=('--enable-luainterp' '--with-lua-prefix=/usr/local')
+  elif lua -v; then
+    ADD_VIM_CONFIGURE_ARGS=('--enable-luainterp' "--with-lua-prefix=$(which lua | xargs dirname | xargs dirname)")
+  else
+    ADD_VIM_CONFIGURE_ARGS=()
+  fi
 else
-  ADD_VIM_CONFIGURE_ARGS=("--with-lua-prefix=${VIM_DIR}")
+  ADD_VIM_CONFIGURE_ARGS=('--enable-luainterp' "--with-lua-prefix=${VIM_DIR}")
   LUA_FTP_URL='https://www.lua.org/ftp'
   LUA_TAR_GZ=$(curl -sSL "${LUA_FTP_URL}" | grep -oe 'lua-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz' | head -1)
   VIM_SRC_LUA_DIR="${VIM_SRC_DIR}/${LUA_TAR_GZ%.tar.gz}"
@@ -139,10 +139,10 @@ else
     curl -sSLO "${LUA_FTP_URL}/${LUA_TAR_GZ}"
     tar xvf "${LUA_TAR_GZ}" && rm -f "${LUA_TAR_GZ}"
     cd "${VIM_SRC_LUA_DIR}"
-    if make all test; then
+    if [[ "${OSTYPE}" = 'msys' ]] && make mingw || make all test; then
       make install INSTALL_TOP="${VIM_DIR}"
     else
-      rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
+      cd .. && rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
     fi
   fi
 fi
@@ -158,14 +158,13 @@ else
   cd "${VIM_SRC_VIM_DIR}"
 fi
 VIM_LATEST_VER="$(git describe --tags)"
-if [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
+if [[ ! -f "${VIM_DIR}/bin/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
   make distclean
   git checkout "${VIM_LATEST_VER}"
   ./configure \
     --prefix="${VIM_DIR}" \
     --enable-fail-if-missing \
-    --enable-luainterp \
-    --enable-python3interp \
+    --enable-python3interp=dynamic \
     --enable-cscope \
     --enable-terminal \
     --enable-multibyte \
@@ -175,11 +174,11 @@ if [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; th
     "${ADD_VIM_CONFIGURE_ARGS[@]}"
   if make; then
     make install
-    echo "${VIM_LATEST_VER}" | tee "${VIM_VER_TXT}"
-    cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_DIR}/bin"
   else
     make distclean && exit 1
   fi
+  echo "${VIM_LATEST_VER}" | tee "${VIM_VER_TXT}"
+  cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_DIR}/bin"
 fi
 
 # Dein
