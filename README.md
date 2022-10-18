@@ -32,6 +32,12 @@ Usage
     $ ./install_latest_vim.sh
     ```
 
+    Install Vim with Lua.
+
+    ```sh
+    $ ./install_latest_vim.sh --lua
+    ```
+
     Install Vim into a custom directory (`/path/to/dir/bin/vim`).
 
     ```sh
