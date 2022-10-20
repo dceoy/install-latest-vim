@@ -30,7 +30,7 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VERSION='v0.1.0'
+COMMAND_VER='v0.1.1'
 
 FORCE=0
 INSTALL_LUA=0
@@ -40,7 +40,7 @@ VIMRC="${HOME}/.vimrc"
 MAIN_ARGS=()
 
 function print_version {
-  echo "${COMMAND_NAME}: ${COMMAND_VERSION}"
+  echo "${COMMAND_NAME}: ${COMMAND_VER}"
 }
 
 function print_usage {
@@ -99,16 +99,18 @@ if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
 else
   VIM_DIR="${DEFAULT_VIM_DIR}"
 fi
-PATH="${VIM_DIR}/bin:/usr/bin:${PATH}"
-VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
+VIM_BIN_DIR="${VIM_DIR}/bin"
 VIM_SRC_DIR="${VIM_DIR}/src"
+VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
-VIM_SRC_ILV_DIR="${VIM_SRC_DIR}/install-latest-vim"
+PATH="${VIM_BIN_DIR}:/usr/bin:${PATH}"
 
 [[ "${OSTYPE}" != 'msys' ]] || git config --global core.autocrlf false
+[[ -d "${VIM_BIN_DIR}" ]] || mkdir -p "${VIM_BIN_DIR}"
 [[ -d "${VIM_SRC_DIR}" ]] || mkdir -p "${VIM_SRC_DIR}"
 
 # install-latest-vim
+VIM_SRC_ILV_DIR="${VIM_SRC_DIR}/install-latest-vim"
 if [[ -d "${VIM_SRC_ILV_DIR}/.git" ]]; then
   cd "${VIM_SRC_ILV_DIR}"
   if [[ ${FORCE} -eq 0 ]]; then
@@ -117,8 +119,9 @@ if [[ -d "${VIM_SRC_ILV_DIR}/.git" ]]; then
     git fetch --prune && git reset --hard origin/master
   fi
 else
-  git clone https://github.com/dceoy/install-latest-vim.git "${VIM_SRC_ILV_DIR}"
+  git clone --depth 1 https://github.com/dceoy/install-latest-vim.git "${VIM_SRC_ILV_DIR}"
 fi
+cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_BIN_DIR}"
 
 # Lua
 if [[ ${INSTALL_LUA} -eq 0 ]]; then
@@ -132,35 +135,49 @@ if [[ ${INSTALL_LUA} -eq 0 ]]; then
 else
   ADD_VIM_CONFIGURE_ARGS=('--enable-luainterp' "--with-lua-prefix=${VIM_DIR}")
   LUA_FTP_URL='https://www.lua.org/ftp'
-  LUA_TAR_GZ=$(curl -sSL "${LUA_FTP_URL}" | grep -oe 'lua-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz' | head -1)
-  VIM_SRC_LUA_DIR="${VIM_SRC_DIR}/${LUA_TAR_GZ%.tar.gz}"
-  if [[ ! -d "${VIM_SRC_LUA_DIR}" ]]; then
-    cd "${VIM_SRC_DIR}"
-    curl -sSLO "${LUA_FTP_URL}/${LUA_TAR_GZ}"
-    tar xvf "${LUA_TAR_GZ}" && rm -f "${LUA_TAR_GZ}"
+  LUA_WITH_VER=$(curl -sSL "${LUA_FTP_URL}" | grep -oe 'lua-[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
+  VIM_SRC_LUA_DIR="${VIM_SRC_DIR}/lua"
+  if [[ ! -d "${VIM_SRC_LUA_DIR}" ]] || [[ ${FORCE} -eq 1 ]]; then
+    if [[ -d "${VIM_SRC_LUA_DIR}" ]]; then
+      cd "${VIM_SRC_LUA_DIR}"
+      make clean && cd .. && rm -rf "${VIM_SRC_LUA_DIR}"
+      find "${VIM_BIN_DIR}" -type f -executable -name 'lua*.dll' -exec rm -f {} \;
+    fi
+    if [[ -d "${VIM_SRC_DIR}/${LUA_WITH_VER}" ]]; then
+      rm -rf "${VIM_SRC_DIR:?}/${LUA_WITH_VER}"
+    fi
+    curl -sSL -o "${VIM_SRC_DIR}/lua.tar.gz" "${LUA_FTP_URL}/${LUA_WITH_VER}.tar.gz"
+    tar xvf "${VIM_SRC_DIR}/lua.tar.gz" -C "${VIM_SRC_DIR}" \
+      && rm -f "${VIM_SRC_DIR}/lua.tar.gz" \
+      && mv "${VIM_SRC_DIR}/${LUA_WITH_VER}" "${VIM_SRC_LUA_DIR}"
     cd "${VIM_SRC_LUA_DIR}"
     if [[ "${OSTYPE}" = 'msys' ]] && make mingw || make all test; then
       make install INSTALL_TOP="${VIM_DIR}"
+      find "${VIM_SRC_LUA_DIR}" -type f -executable -name 'lua*.dll' \
+        -exec cp -an {} "${VIM_BIN_DIR}" \;
     else
-      cd .. && rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
+      make clean && cd .. && rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
     fi
   fi
 fi
 
 # Vim
-if [[ -d "${VIM_SRC_VIM_DIR}/.git" ]]; then
+VIM_CURRENT_VER="$([[ -f "${VIM_VER_TXT}" ]] && cat "${VIM_VER_TXT}" || echo -n)"
+VIM_LATEST_VER="$(curl -sSL 'https://api.github.com/repos/vim/vim/tags' | grep -oe '"name": \+"v[0-9\.]\+' | head -1 | cut -d v -f 2)"
+if [[ ! -f "${VIM_BIN_DIR}/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
+  if [[ -d "${VIM_SRC_VIM_DIR}" ]]; then
+    cd "${VIM_SRC_VIM_DIR}"
+    make distclean && cd .. && rm -rf "${VIM_SRC_VIM_DIR}"
+  fi
+  if [[ -d "${VIM_SRC_VIM_DIR}-${VIM_LATEST_VER}" ]]; then
+    rm -rf "${VIM_SRC_VIM_DIR}-${VIM_LATEST_VER}"
+  fi
+  curl -sSL -o "${VIM_SRC_DIR}/vim.tar.gz" \
+    "https://github.com/vim/vim/archive/refs/tags/v${VIM_LATEST_VER}.tar.gz"
+  tar xvf "${VIM_SRC_DIR}/vim.tar.gz" -C "${VIM_SRC_DIR}" \
+    && rm -f "${VIM_SRC_DIR}/vim.tar.gz" \
+    && mv "${VIM_SRC_VIM_DIR}-${VIM_LATEST_VER}" "${VIM_SRC_VIM_DIR}"
   cd "${VIM_SRC_VIM_DIR}"
-  VIM_CURRENT_VER="$(git describe --tags)"
-  git fetch --prune
-else
-  VIM_CURRENT_VER=''
-  git clone https://github.com/vim/vim.git "${VIM_SRC_VIM_DIR}"
-  cd "${VIM_SRC_VIM_DIR}"
-fi
-VIM_LATEST_VER="$(git describe --tags)"
-if [[ ! -f "${VIM_DIR}/bin/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
-  make distclean
-  git checkout "${VIM_LATEST_VER}"
   ./configure \
     --prefix="${VIM_DIR}" \
     --enable-fail-if-missing \
@@ -175,28 +192,27 @@ if [[ ! -f "${VIM_DIR}/bin/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_V
   if make; then
     make install
   else
-    make distclean && exit 1
+    make distclean && cd .. && rm -rf "${VIM_SRC_VIM_DIR}" && exit 1
   fi
   echo "${VIM_LATEST_VER}" | tee "${VIM_VER_TXT}"
-  cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_DIR}/bin"
 fi
 
 # Dein
 if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
-  DEIN_VIM_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
-  VIM_PLUGIN_UPDATE="${VIM_DIR}/bin/vim-plugin-update"
-  if [[ -d "${DEIN_VIM_DIR}" ]]; then
-    cd "${DEIN_VIM_DIR}"
+  DEIN_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
+  VIM_PLUGIN_UPDATE="${VIM_BIN_DIR}/vim-plugin-update"
+  if [[ -d "${DEIN_DIR}" ]]; then
+    cd "${DEIN_DIR}"
     if [[ ${FORCE} -eq 0 ]]; then
       git pull --prune
     else
       git fetch --prune && git reset --hard origin/master
     fi
   else
-    git clone https://github.com/Shougo/dein.vim "${DEIN_VIM_DIR}"
+    git clone --depth 1 https://github.com/Shougo/dein.vim "${DEIN_DIR}"
   fi
-  "${DEIN_VIM_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
+  "${DEIN_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
   if [[ -f "${VIMRC}" ]]; then
     if [[ ! -f "${VIM_PLUGIN_UPDATE}" ]] || [[ ${FORCE} -eq 1 ]]; then
       {
@@ -204,7 +220,7 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
         echo
         echo 'set -eux'
         echo
-        echo "${VIM_DIR}/bin/vim \\"
+        echo "${VIM_BIN_DIR}/vim \\"
         echo "  -c 'try | call dein#update() | finally | qall! | endtry' \\"
         echo "  -N -u ${VIMRC} -U NONE -i NONE -V1 -e -s"
       } > "${VIM_PLUGIN_UPDATE}"
