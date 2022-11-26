@@ -212,7 +212,7 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   else
     git clone --depth 1 https://github.com/Shougo/dein.vim "${DEIN_DIR}"
   fi
-  "${DEIN_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}"
+  "${DEIN_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}" || :
   if [[ -f "${VIMRC}" ]]; then
     if [[ ! -f "${VIM_PLUGIN_UPDATE}" ]] || [[ ${FORCE} -eq 1 ]]; then
       {
