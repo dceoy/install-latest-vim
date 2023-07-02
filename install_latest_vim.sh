@@ -30,7 +30,7 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VER='v0.1.1'
+COMMAND_VER='v0.1.2'
 
 FORCE=0
 INSTALL_LUA=0
@@ -141,7 +141,7 @@ else
     if [[ -d "${VIM_SRC_LUA_DIR}" ]]; then
       cd "${VIM_SRC_LUA_DIR}"
       make clean && cd .. && rm -rf "${VIM_SRC_LUA_DIR}"
-      find "${VIM_BIN_DIR}" -type f -executable -name 'lua*.dll' -exec rm -f {} \;
+      find "${VIM_BIN_DIR}" -type f -name 'lua*.dll' -exec rm -f {} \;
     fi
     if [[ -d "${VIM_SRC_DIR}/${LUA_WITH_VER}" ]]; then
       rm -rf "${VIM_SRC_DIR:?}/${LUA_WITH_VER}"
@@ -153,7 +153,7 @@ else
     cd "${VIM_SRC_LUA_DIR}"
     if [[ "${OSTYPE}" = 'msys' ]] && make mingw || make all test; then
       make install INSTALL_TOP="${VIM_DIR}"
-      find "${VIM_SRC_LUA_DIR}" -type f -executable -name 'lua*.dll' \
+      find "${VIM_SRC_LUA_DIR}" -type f -name 'lua*.dll' \
         -exec cp -an {} "${VIM_BIN_DIR}" \;
     else
       make clean && cd .. && rm -rf "${VIM_SRC_LUA_DIR}" && exit 1
