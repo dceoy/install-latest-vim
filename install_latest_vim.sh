@@ -202,6 +202,7 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
   VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
   DEIN_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
   VIM_PLUGIN_UPDATE="${VIM_BIN_DIR}/vim-plugin-update"
+  DEIN_INSTALLER="${VIM_BIN_DIR}/dein-installer.sh"
   if [[ -d "${DEIN_DIR}" ]]; then
     cd "${DEIN_DIR}"
     if [[ ${FORCE} -eq 0 ]]; then
@@ -210,9 +211,13 @@ if [[ ${INSTALL_DEIN} -eq 1 ]]; then
       git fetch --prune && git reset --hard origin/master
     fi
   else
-    git clone --depth 1 https://github.com/Shougo/dein.vim "${DEIN_DIR}"
+    if [[ ! -f "${DEIN_INSTALLER}" ]] || [[ ${FORCE} -eq 1 ]]; then
+      curl -fsSL -o "${DEIN_INSTALLER}" \
+        https://raw.githubusercontent.com/Shougo/dein-installer.vim/master/installer.sh
+      chmod +x "${DEIN_INSTALLER}"
+    fi
+    "${DEIN_INSTALLER}" --use-vim-config  "${VIM_BUNDLE_DIR}" || :
   fi
-  "${DEIN_DIR}/bin/installer.sh" "${VIM_BUNDLE_DIR}" || :
   if [[ -f "${VIMRC}" ]]; then
     if [[ ! -f "${VIM_PLUGIN_UPDATE}" ]] || [[ ${FORCE} -eq 1 ]]; then
       {
