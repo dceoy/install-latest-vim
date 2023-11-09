@@ -30,7 +30,7 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VER='v0.1.2'
+COMMAND_VER='v0.1.3'
 
 FORCE=0
 INSTALL_LUA=0
@@ -103,7 +103,11 @@ VIM_BIN_DIR="${VIM_DIR}/bin"
 VIM_SRC_DIR="${VIM_DIR}/src"
 VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
-PATH="${VIM_BIN_DIR}:/usr/bin:${PATH}"
+if [[ -d '/opt/homebrew/bin' ]]; then
+  PATH="${VIM_BIN_DIR}:/opt/homebrew/bin:${PATH}"
+else
+  PATH="${VIM_BIN_DIR}:/usr/bin:${PATH}"
+fi
 
 [[ "${OSTYPE}" != 'msys' ]] || git config --global core.autocrlf false
 [[ -d "${VIM_BIN_DIR}" ]] || mkdir -p "${VIM_BIN_DIR}"
@@ -125,9 +129,7 @@ cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_BIN_DIR}"
 
 # Lua
 if [[ ${INSTALL_LUA} -eq 0 ]]; then
-  if [[ -f '/usr/local/bin/lua' ]]; then
-    ADD_VIM_CONFIGURE_ARGS=('--enable-luainterp' '--with-lua-prefix=/usr/local')
-  elif lua -v; then
+  if lua -v; then
     ADD_VIM_CONFIGURE_ARGS=('--enable-luainterp' "--with-lua-prefix=$(which lua | xargs dirname | xargs dirname)")
   else
     ADD_VIM_CONFIGURE_ARGS=()
