@@ -4,7 +4,7 @@
 #
 # Usage:
 #   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--dein]
-#     [--vimrc=<path>] [<dir>]
+#     [--vimrc=<path>] [--python3=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
 #
@@ -14,6 +14,8 @@
 #   --lua           Install Lua
 #   --dein          Install dein.vim
 #   --vimrc=<path>  Specify a path to vimrc [default: ~/.vimrc]
+#   --python3=<path>
+#                   Specify a path to Python3
 #   --version       Print version
 #   -h, --help      Print usage
 #
@@ -30,13 +32,14 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VER='v0.1.3'
+COMMAND_VER='v0.2.0'
 
 FORCE=0
 INSTALL_LUA=0
 INSTALL_DEIN=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
 VIMRC="${HOME}/.vimrc"
+PYTHON3=''
 MAIN_ARGS=()
 
 function print_version {
@@ -79,6 +82,12 @@ while [[ ${#} -ge 1 ]]; do
     --vimrc=* )
       VIMRC="${1#*\=}" && shift 1
       ;;
+    '--python3' )
+      PYTHON3="${2}" && shift 2
+      ;;
+    --python3=* )
+      PYTHON3="${1#*\=}" && shift 1
+      ;;
     '--version' )
       print_version && exit 0
       ;;
@@ -103,10 +112,16 @@ VIM_BIN_DIR="${VIM_DIR}/bin"
 VIM_SRC_DIR="${VIM_DIR}/src"
 VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
-if [[ -d '/opt/homebrew/bin' ]]; then
-  PATH="${VIM_BIN_DIR}:/opt/homebrew/bin:${PATH}"
-else
-  PATH="${VIM_BIN_DIR}:/usr/bin:${PATH}"
+if [[ -z "${PYTHON3}" ]]; then
+  if [[ -f '/opt/homebrew/bin/python3' ]]; then
+    PYTHON3='/opt/homebrew/bin/python3'
+  elif [[ -f '/usr/local/bin/python3' ]]; then
+    PYTHON3='/usr/local/bin/python3'
+  elif [[ -f '/usr/bin/python3' ]]; then
+    PYTHON3='/usr/bin/python3'
+  else
+    PYTHON3="$(which python3)"
+  fi
 fi
 
 [[ "${OSTYPE}" != 'msys' ]] || git config --global core.autocrlf false
@@ -184,6 +199,7 @@ if [[ ! -f "${VIM_BIN_DIR}/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_V
     --prefix="${VIM_DIR}" \
     --enable-fail-if-missing \
     --enable-python3interp=dynamic \
+    --with-python3-command="${PYTHON3}" \
     --enable-cscope \
     --enable-terminal \
     --enable-multibyte \
