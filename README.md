@@ -3,7 +3,7 @@ install-latest-vim
 
 Installer for the latest version of Vim
 
-[![CI to Docker Hub](https://github.com/dceoy/install-latest-vim/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/dceoy/install-latest-vim/actions/workflows/docker-publish.yml)
+[![CI to Docker Hub](https://github.com/dceoy/install-latest-vim/actions/workflows/docker-compose-build-and-push.yml/badge.svg)](https://github.com/dceoy/install-latest-vim/actions/workflows/docker-compose-build-and-push.yml)
 
 Docker image
 ------------
