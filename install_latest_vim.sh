@@ -3,7 +3,7 @@
 # Build and install the latest version of Vim
 #
 # Usage:
-#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--dein]
+#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--vim-plug]
 #     [--vimrc=<path>] [--python3=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
@@ -12,7 +12,7 @@
 #   --debug         Run wdebug mode
 #   -f, --force     Option without an argument
 #   --lua           Install Lua
-#   --dein          Install dein.vim
+#   --vim-plug      Install vim-plug
 #   --vimrc=<path>  Specify a path to vimrc [default: ~/.vimrc]
 #   --python3=<path>
 #                   Specify a path to Python3
@@ -32,11 +32,11 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VER='v0.2.0'
+COMMAND_VER='v0.3.0'
 
 FORCE=0
 INSTALL_LUA=0
-INSTALL_DEIN=0
+INSTALL_VIM_PLUG=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
 VIMRC="${HOME}/.vimrc"
 PYTHON3=''
@@ -73,8 +73,8 @@ while [[ ${#} -ge 1 ]]; do
     '--lua' )
       INSTALL_LUA=1 && shift 1
       ;;
-    '--dein' )
-      INSTALL_DEIN=1 && shift 1
+    '--vim-plug' )
+      INSTALL_VIM_PLUG=1 && shift 1
       ;;
     '--vimrc' )
       VIMRC="${2}" && shift 2
@@ -215,40 +215,24 @@ if [[ ! -f "${VIM_BIN_DIR}/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_V
   echo "${VIM_LATEST_VER}" | tee "${VIM_VER_TXT}"
 fi
 
-# Dein
-if [[ ${INSTALL_DEIN} -eq 1 ]]; then
-  VIM_BUNDLE_DIR="${DEFAULT_VIM_DIR}/bundles"
-  DEIN_DIR="${VIM_BUNDLE_DIR}/repos/github.com/Shougo/dein.vim"
+# vim-plug
+if [[ ${INSTALL_VIM_PLUG} -eq 1 ]]; then
   VIM_PLUGIN_UPDATE="${VIM_BIN_DIR}/vim-plugin-update"
-  DEIN_INSTALLER="${VIM_BIN_DIR}/dein-installer.sh"
-  if [[ -d "${DEIN_DIR}" ]]; then
-    cd "${DEIN_DIR}"
-    if [[ ${FORCE} -eq 0 ]]; then
-      git pull --prune
-    else
-      git fetch --prune && git reset --hard origin/master
-    fi
-  else
-    if [[ ! -f "${DEIN_INSTALLER}" ]] || [[ ${FORCE} -eq 1 ]]; then
-      curl -fsSL -o "${DEIN_INSTALLER}" \
-        https://raw.githubusercontent.com/Shougo/dein-installer.vim/master/installer.sh
-      chmod +x "${DEIN_INSTALLER}"
-    fi
-    "${DEIN_INSTALLER}" --use-vim-config  "${VIM_BUNDLE_DIR}" || :
+  VIM_AUTOLOAD_DIR="${VIM_DIR}/autoload"
+  VIM_PLUG_VIM="${VIM_AUTOLOAD_DIR}/plug.vim"
+  if [[ ! -f "${VIM_PLUG_VIM}" ]] || [[ ${FORCE} -eq 1 ]]; then
+    [[ -d "${VIM_AUTOLOAD_DIR}" ]] || mkdir -p "${VIM_AUTOLOAD_DIR}"
+    curl -fSL -o "${VIM_PLUG_VIM}" https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
   fi
   if [[ -f "${VIMRC}" ]]; then
-    if [[ ! -f "${VIM_PLUGIN_UPDATE}" ]] || [[ ${FORCE} -eq 1 ]]; then
-      {
-        echo '#!/usr/bin/env bash'
-        echo
-        echo 'set -eux'
-        echo
-        echo "${VIM_BIN_DIR}/vim \\"
-        echo "  -c 'try | call dein#update() | finally | qall! | endtry' \\"
-        echo "  -N -u ${VIMRC} -U NONE -i NONE -V1 -e -s"
-      } > "${VIM_PLUGIN_UPDATE}"
-      chmod +x "${VIM_PLUGIN_UPDATE}"
-    fi
+    {
+      echo '#!/usr/bin/env bash'
+      echo
+      echo 'set -euxo pipefail'
+      echo
+      echo "${VIM_BIN_DIR}/vim -N -u ${VIMRC} -U NONE -i NONE -V1 -e -s -c 'PlugUpdate --sync | qa'"
+    } > "${VIM_PLUGIN_UPDATE}"
+    chmod +x "${VIM_PLUGIN_UPDATE}"
     "${VIM_PLUGIN_UPDATE}" || :
   fi
 fi
