@@ -1,6 +1,4 @@
 ---
-version: '3'
-
 services:
   vim:
     container_name: vim
@@ -11,7 +9,7 @@ services:
     user: ${UID}:${GID}
     userns_mode: host
     volumes:
-      - ${PWD}:/wd
+      - .:/wd
     working_dir: /wd
     entrypoint:
       - /usr/local/bin/vim

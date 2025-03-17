@@ -7,7 +7,11 @@ on:
   workflow_dispatch:
 jobs:
   build-and-push:
-    uses: dceoy/gh-actions-for-devops/.github/workflows/docker-compose-build-and-push.yml@main
+    uses: dceoy/gh-actions-for-devops/.github/workflows/docker-buildx-bake.yml@main
+    with:
+      registry: docker.io
+      registry-user: ${{ github.actor }}
+      bake-files: compose.yml
+      push: true
     secrets:
-      DOCKER_USER: ${{ github.actor }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
