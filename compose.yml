@@ -2,9 +2,6 @@
 services:
   vim:
     container_name: vim
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: dceoy/vim:latest
     user: ${UID}:${GID}
     userns_mode: host
