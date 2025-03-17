@@ -34,7 +34,7 @@ target "vim" {
   tags       = ["${REGISTRY}/vim:${TAG}"]
   context    = "."
   dockerfile = "Dockerfile"
-  target     = "app"
+  target     = "cli"
   platforms  = ["linux/arm64"]
   args = {
     UBUNTU_VERSION = UBUNTU_VERSION
