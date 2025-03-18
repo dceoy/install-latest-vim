@@ -219,16 +219,19 @@ fi
 if [[ ${INSTALL_VIM_PLUG} -eq 1 ]]; then
   VIM_PLUGIN_UPDATE="${VIM_BIN_DIR}/vim-plugin-update"
   VIM_AUTOLOAD_DIR="${VIM_DIR}/autoload"
+  VIM_PLUG_VIM_URL='https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
   VIM_PLUG_VIM="${VIM_AUTOLOAD_DIR}/plug.vim"
   if [[ ! -f "${VIM_PLUG_VIM}" ]] || [[ ${FORCE} -eq 1 ]]; then
     [[ -d "${VIM_AUTOLOAD_DIR}" ]] || mkdir -p "${VIM_AUTOLOAD_DIR}"
-    curl -fSL -o "${VIM_PLUG_VIM}" https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    curl -fSL -o "${VIM_PLUG_VIM}" "${VIM_PLUG_VIM_URL}"
   fi
   if [[ -f "${VIMRC}" ]]; then
     {
       echo '#!/usr/bin/env bash'
       echo
       echo 'set -euxo pipefail'
+      echo
+      echo "[[ -f '${VIM_PLUG_VIM}' ]] || curl -fSL --create-dirs -o '${VIM_PLUG_VIM}' '${VIM_PLUG_VIM_URL}'"
       echo
       echo "${VIM_BIN_DIR}/vim -N -u ${VIMRC} -U NONE -i NONE -V1 -e -s -c 'PlugUpdate --sync | qa'"
     } > "${VIM_PLUGIN_UPDATE}"
