@@ -11,6 +11,7 @@ jobs:
     with:
       registry: docker.io
       registry-user: ${{ github.actor }}
+      bake-files: compose.yml
       push: true
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
