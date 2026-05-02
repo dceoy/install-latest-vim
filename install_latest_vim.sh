@@ -3,27 +3,25 @@
 # Build and install the latest version of Vim
 #
 # Usage:
-#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--vim-plug]
-#     [--vimrc=<path>] [--python3=<path>] [<dir>]
+#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--vim-plug] [--vimrc=<path>]
+#     [--python3=<path>] [<dir>]
 #   install_latest_vim.sh [--debug] --only-plugins [--vimrc=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
 #
 # Options:
-#   --debug         Run wdebug mode
-#   -f, --force     Option without an argument
-#   --lua           Install Lua
-#   --vim-plug      Install vim-plug
-#   --only-plugins
-#                   Update Vim plugins and exit
-#   --vimrc=<path>  Specify a path to vimrc [default: ~/.vimrc]
-#   --python3=<path>
-#                   Specify a path to Python3
-#   --version       Print version
-#   -h, --help      Print usage
+#   --debug           Run wdebug mode
+#   -f, --force       Option without an argument
+#   --lua             Install Lua
+#   --vim-plug        Install vim-plug
+#   --only-plugins    Update Vim plugins and exit
+#   --vimrc=<path>    Specify a path to vimrc [default: ~/.vimrc]
+#   --python3=<path>  Specify a path to Python3
+#   --version         Print version
+#   -h, --help        Print usage
 #
 # Arguments:
-#   <dir>           Directory path where Vim is installed [default: ~/.vim]
+#   <dir>             Directory path where Vim is installed [default: ~/.vim]
 
 set -euo pipefail
 
@@ -42,6 +40,7 @@ INSTALL_LUA=0
 INSTALL_VIM_PLUG=0
 UPDATE_VIM_PLUGINS=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
+VIM_PLUG_UPDATE_NAME='vim_plug_update.sh'
 VIMRC="${HOME}/.vimrc"
 PYTHON3=''
 MAIN_ARGS=()
@@ -67,8 +66,6 @@ function abort {
 }
 
 function write_vim_plugin_update {
-  local vim_plugin_update="${VIM_BIN_DIR}/update_vim_plugins.sh"
-  local vim_old_plugin_update="${VIM_BIN_DIR}/vim-plugin-update"
   local vim_autoload_dir="${VIM_DIR}/autoload"
   local vim_plug_vim_url='https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
   local vim_plug_vim="${vim_autoload_dir}/plug.vim"
@@ -80,7 +77,6 @@ function write_vim_plugin_update {
     [[ -d "${vim_autoload_dir}" ]] || mkdir -p "${vim_autoload_dir}"
     curl -fSL -o "${vim_plug_vim}" "${vim_plug_vim_url}"
   fi
-  [[ ! -f "${vim_old_plugin_update}" ]] || rm -f "${vim_old_plugin_update}"
   {
     printf '%s\n' '#!/usr/bin/env bash'
     printf '\n'
@@ -95,15 +91,15 @@ function write_vim_plugin_update {
     printf '%s\n' '  set -x && shift 1'
     printf '%s\n' 'fi'
     printf '\n'
-    printf '%s\n' "[[ \${#} -eq 0 ]] || { echo \"update_vim_plugins.sh: invalid argument: \${1}\" >&2; exit 1; }"
+    printf '%s\n' "[[ \${#} -eq 0 ]] || { echo \"${VIM_PLUG_UPDATE_NAME}: invalid argument: \${1}\" >&2; exit 1; }"
     printf '\n'
     printf '%s\n' "if [[ ! -f \"\${VIM_PLUG_VIM}\" ]]; then"
     printf '%s\n' "  curl -fSL --create-dirs -o \"\${VIM_PLUG_VIM}\" \"\${VIM_PLUG_VIM_URL}\""
     printf '%s\n' 'fi'
     printf '\n'
     printf '%s\n' "\"\${VIM_BIN}\" -N -u \"\${VIMRC}\" -U NONE -i NONE -e -s -c 'PlugUpdate --sync | qa'"
-  } > "${vim_plugin_update}"
-  chmod +x "${vim_plugin_update}"
+  } > "${VIM_PLUG_UPDATE}"
+  chmod +x "${VIM_PLUG_UPDATE}"
 }
 
 while [[ ${#} -ge 1 ]]; do
@@ -156,13 +152,14 @@ else
   VIM_DIR="${DEFAULT_VIM_DIR}"
 fi
 VIM_BIN_DIR="${VIM_DIR}/bin"
+VIM_PLUG_UPDATE="${VIM_BIN_DIR}/${VIM_PLUG_UPDATE_NAME}"
 VIM_SRC_DIR="${VIM_DIR}/src"
 VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
 
 if [[ ${UPDATE_VIM_PLUGINS} -eq 1 ]]; then
   write_vim_plugin_update || abort "vimrc not found: ${VIMRC}"
-  "${VIM_BIN_DIR}/update_vim_plugins.sh"
+  "${VIM_PLUG_UPDATE}"
   exit 0
 fi
 
@@ -272,6 +269,6 @@ fi
 # vim-plug
 if [[ ${INSTALL_VIM_PLUG} -eq 1 ]]; then
   if write_vim_plugin_update; then
-    "${VIM_BIN_DIR}/update_vim_plugins.sh" || :
+    "${VIM_PLUG_UPDATE}" || :
   fi
 fi
