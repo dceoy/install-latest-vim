@@ -1,21 +1,10 @@
-install-latest-vim
-==================
+# install-latest-vim
 
 Installer for the latest version of Vim
 
-[![CI to Docker Hub](https://github.com/dceoy/install-latest-vim/actions/workflows/ci.yml/badge.svg)](https://github.com/dceoy/install-latest-vim/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/dceoy/install-latest-vim/actions/workflows/ci.yml/badge.svg)](https://github.com/dceoy/install-latest-vim/actions/workflows/ci.yml)
 
-Docker image
-------------
-
-Pull the image from [Docker Hub](https://hub.docker.com/r/dceoy/vim/).
-
-```sh
-$ docker image pull dceoy/vim
-```
-
-Usage
------
+## Usage
 
 1.  Download `install_latest_vim.sh`.
 
