@@ -33,4 +33,10 @@ Installer for the latest version of Vim
     $ ./install_latest_vim.sh /path/to/dir
     ```
 
+    Update Vim plugins without rebuilding Vim.
+
+    ```sh
+    $ ./install_latest_vim.sh --only-plugins
+    ```
+
 Run `./install_latest_vim.sh --help` for more information.

@@ -3,18 +3,20 @@
 ## Project Structure & Module Organization
 
 This repository packages an installer for the latest Vim release and a Docker image
-that runs it. The main entry points are `install_latest_vim.sh` and
-`update_vim_plugins.sh` in the repository root. Docker build configuration lives in
-`Dockerfile` and `compose.yml`. CI and dependency automation are under `.github/`.
-Agent and local QA support files are under `.agents/`. There is no separate source,
-test, or asset tree; keep new project files close to the root unless a new category
-clearly needs its own directory.
+that runs it. The main entry point is `install_latest_vim.sh` in the repository
+root. Docker build configuration lives in `Dockerfile` and `compose.yml`. CI and
+dependency automation are under `.github/`. Agent and local QA support files are
+under `.agents/`. There is no separate source, test, or asset tree; keep new
+project files close to the root unless a new category clearly needs its own
+directory.
 
 ## Build, Test, and Development Commands
 
 - `./install_latest_vim.sh --help`: show supported installer flags and arguments.
 - `./install_latest_vim.sh [--lua] [--vim-plug] [<install_dir>]`: build and install
   Vim locally, defaulting to `~/.vim`.
+- `./install_latest_vim.sh --only-plugins`: update Vim plugins without rebuilding
+  Vim.
 - `./install_latest_vim.sh --version`: print the installer version.
 - `docker compose build vim`: build the local Docker image from `Dockerfile`.
 - `docker compose run --rm vim`: run the built image and print Vim version output.
