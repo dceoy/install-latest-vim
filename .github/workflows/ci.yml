@@ -1,17 +1,35 @@
 ---
-name: CI to Docker Hub
+name: CI/CD
 on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - synchronize
+      - reopened
   workflow_dispatch:
 jobs:
-  build-and-push:
-    uses: dceoy/gh-actions-for-devops/.github/workflows/docker-buildx-bake.yml@main
+  shell-lint:
+    permissions:
+      contents: read
+    uses: dceoy/gh-actions-for-devops/.github/workflows/shell-lint.yml@main  # zizmor: ignore[unpinned-uses]
     with:
-      registry: docker.io
-      registry-user: ${{ github.actor }}
-      bake-files: compose.yml
-      push: true
+      search-path: .
+  dependabot-auto-merge:
+    if: >
+      github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    needs:
+      - shell-lint
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    uses: dceoy/gh-actions-for-devops/.github/workflows/dependabot-auto-merge.yml@main  # zizmor: ignore[unpinned-uses]
+    with:
+      unconditional: true
     secrets:
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
