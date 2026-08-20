@@ -104,43 +104,43 @@ function write_vim_plugin_update {
 
 while [[ ${#} -ge 1 ]]; do
   case "${1}" in
-    '--debug' )
+    '--debug')
       shift 1
       ;;
-    '-f' | '--force' )
+    '-f' | '--force')
       FORCE=1 && shift 1
       ;;
-    '--lua' )
+    '--lua')
       INSTALL_LUA=1 && shift 1
       ;;
-    '--vim-plug' )
+    '--vim-plug')
       INSTALL_VIM_PLUG=1 && shift 1
       ;;
-    '--only-plugins' )
+    '--only-plugins')
       UPDATE_VIM_PLUGINS=1 && shift 1
       ;;
-    '--vimrc' )
+    '--vimrc')
       VIMRC="${2}" && shift 2
       ;;
-    --vimrc=* )
+    --vimrc=*)
       VIMRC="${1#*\=}" && shift 1
       ;;
-    '--python3' )
+    '--python3')
       PYTHON3="${2}" && shift 2
       ;;
-    --python3=* )
+    --python3=*)
       PYTHON3="${1#*\=}" && shift 1
       ;;
-    '--version' )
+    '--version')
       print_version && exit 0
       ;;
-    '-h' | '--help' )
+    '-h' | '--help')
       print_usage && exit 0
       ;;
-    -* )
+    -*)
       abort "invalid option: ${1}"
       ;;
-    * )
+    *)
       MAIN_ARGS+=("${1}") && shift 1
       ;;
   esac

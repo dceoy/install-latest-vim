@@ -12,6 +12,8 @@ on:
       - synchronize
       - reopened
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   shell-lint:
     permissions:

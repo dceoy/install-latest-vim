@@ -9,10 +9,12 @@ export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
 export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
-git ls-files -z -- '*.sh' '*.bash' '*.bats' | xargs -0 -t shellcheck
+git ls-files -z -- '*.sh' '*.bash' '*.bats' \
+  | xargs -0 -t shfmt --write --indent=2 --binary-next-line --case-indent --space-redirects
+git ls-files -z -- '*.sh' '*.bash' '*.bats' \
+  | xargs -0 -t shellcheck
 npx -y prettier --write './**/*.md'
 uvx zizmor --fix=safe .github/workflows
 git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' | xargs -0 -t actionlint
 git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' | xargs -0 -t uvx yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
 uvx checkov --framework=all --output=github_failed_only --directory=.
-trivy filesystem --scanners vuln,secret,misconfig --skip-dirs .git .
