@@ -180,7 +180,13 @@ fi
 
 # install-latest-vim
 VIM_INSTALLER="$(realpath "${VIM_BIN_DIR}")/install_latest_vim.sh"
-[[ "${COMMAND_PATH}" = "${VIM_INSTALLER}" ]] || cp -a "${COMMAND_PATH}" "${VIM_INSTALLER}"
+if [[ "${COMMAND_PATH}" != "${VIM_INSTALLER}" ]]; then
+  if [[ "${COMMAND_PATH}" == "${VIM_SRC_DIR}/"* ]]; then
+    mv "${COMMAND_PATH}" "${VIM_INSTALLER}"
+  else
+    cp -a "${COMMAND_PATH}" "${VIM_INSTALLER}"
+  fi
+fi
 
 # Lua
 if [[ ${INSTALL_LUA} -eq 0 ]]; then
