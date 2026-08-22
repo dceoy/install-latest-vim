@@ -175,23 +175,12 @@ if [[ -z "${PYTHON3}" ]]; then
   fi
 fi
 
-[[ "${OSTYPE}" != 'msys' ]] || git config --global core.autocrlf false
 [[ -d "${VIM_BIN_DIR}" ]] || mkdir -p "${VIM_BIN_DIR}"
 [[ -d "${VIM_SRC_DIR}" ]] || mkdir -p "${VIM_SRC_DIR}"
 
 # install-latest-vim
-VIM_SRC_ILV_DIR="${VIM_SRC_DIR}/install-latest-vim"
-if [[ -d "${VIM_SRC_ILV_DIR}/.git" ]]; then
-  cd "${VIM_SRC_ILV_DIR}"
-  if [[ ${FORCE} -eq 0 ]]; then
-    git pull --prune
-  else
-    git fetch --prune && git reset --hard origin/master
-  fi
-else
-  git clone --depth 1 https://github.com/dceoy/install-latest-vim.git "${VIM_SRC_ILV_DIR}"
-fi
-cp -a "${VIM_SRC_ILV_DIR}/install_latest_vim.sh" "${VIM_BIN_DIR}"
+VIM_INSTALLER="${VIM_BIN_DIR}/install_latest_vim.sh"
+[[ "${COMMAND_PATH}" = "${VIM_INSTALLER}" ]] || cp -a "${COMMAND_PATH}" "${VIM_INSTALLER}"
 
 # Lua
 if [[ ${INSTALL_LUA} -eq 0 ]]; then
