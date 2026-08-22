@@ -179,7 +179,7 @@ fi
 [[ -d "${VIM_SRC_DIR}" ]] || mkdir -p "${VIM_SRC_DIR}"
 
 # install-latest-vim
-VIM_INSTALLER="${VIM_BIN_DIR}/install_latest_vim.sh"
+VIM_INSTALLER="$(realpath "${VIM_BIN_DIR}")/install_latest_vim.sh"
 [[ "${COMMAND_PATH}" = "${VIM_INSTALLER}" ]] || cp -a "${COMMAND_PATH}" "${VIM_INSTALLER}"
 
 # Lua
