@@ -71,9 +71,28 @@ function abort {
 
 function github_api {
   local args=(-fsSL -H 'Accept: application/vnd.github+json')
-  local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
-  [[ -z "${token}" ]] || args+=(-H "Authorization: Bearer ${token}")
-  curl "${args[@]}" "${1}"
+  local xtrace=0 token status
+
+  if [[ $- == *x* ]]; then
+    xtrace=1
+    set +x
+  fi
+  token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  if [[ -z "${token}" ]]; then
+    if curl "${args[@]}" "${1}"; then
+      status=0
+    else
+      status=$?
+    fi
+  elif printf 'Authorization: Bearer %s\n' "${token}" | curl "${args[@]}" -H '@-' "${1}"; then
+    status=0
+  else
+    status="${PIPESTATUS[1]}"
+  fi
+  if ((xtrace)); then
+    set -x
+  fi
+  return "${status}"
 }
 
 function github_commit_before {
@@ -81,16 +100,30 @@ function github_commit_before {
     | jq -er '.[0].sha'
 }
 
+function github_tag_date {
+  local repository="${1}" tag="${2}" sha="${3}" reference object_type object_sha
+  reference="$(github_api "https://api.github.com/repos/${repository}/git/ref/tags/${tag}")"
+  object_type="$(jq -er '.object.type' <<< "${reference}")"
+  if [[ "${object_type}" = 'tag' ]]; then
+    object_sha="$(jq -er '.object.sha' <<< "${reference}")"
+    github_api "https://api.github.com/repos/${repository}/git/tags/${object_sha}" \
+      | jq -er '.tagger.date'
+  else
+    github_api "https://api.github.com/repos/${repository}/commits/${sha}" \
+      | jq -er '.commit.committer.date'
+  fi
+}
+
 function resolve_vim_version {
-  local page=1 tags count low high mid sha date
+  local page=1 tags count low high mid tag sha date
   while :; do
     tags="$(github_api "https://api.github.com/repos/vim/vim/tags?per_page=100&page=${page}")"
     count="$(jq 'length' <<< "${tags}")"
     ((count > 0)) || abort 'no Vim release is old enough'
 
+    tag="$(jq -r '.[-1].name' <<< "${tags}")"
     sha="$(jq -r '.[-1].commit.sha' <<< "${tags}")"
-    date="$(github_api "https://api.github.com/repos/vim/vim/commits/${sha}" \
-      | jq -r '.commit.committer.date')"
+    date="$(github_tag_date 'vim/vim' "${tag}" "${sha}")"
     if [[ "${date}" > "${CUTOFF_ISO}" ]]; then
       ((page++))
       continue
@@ -100,9 +133,9 @@ function resolve_vim_version {
     high=$((count - 1))
     while ((low < high)); do
       mid=$(((low + high) / 2))
+      tag="$(jq -r ".[$mid].name" <<< "${tags}")"
       sha="$(jq -r ".[$mid].commit.sha" <<< "${tags}")"
-      date="$(github_api "https://api.github.com/repos/vim/vim/commits/${sha}" \
-        | jq -r '.commit.committer.date')"
+      date="$(github_tag_date 'vim/vim' "${tag}" "${sha}")"
       if [[ "${date}" > "${CUTOFF_ISO}" ]]; then
         low=$((mid + 1))
       else
@@ -115,23 +148,32 @@ function resolve_vim_version {
 }
 
 function update_vim_plugins {
-  local vim_plug_vim="${VIM_DIR}/autoload/plug.vim"
-  local repository sha name
+  local vim_autoload_dir="${VIM_DIR}/autoload"
+  local vim_plug_vim="${vim_autoload_dir}/plug.vim"
+  local vim_plug_tmp repository sha name
 
   [[ -f "${VIMRC}" ]] || abort "vimrc not found: ${VIMRC}"
   [[ -x "${VIM_BIN_DIR}/vim" ]] || abort "vim not found or not executable: ${VIM_BIN_DIR}/vim"
 
-  curl -fSL --create-dirs -o "${vim_plug_vim}" \
-    "https://raw.githubusercontent.com/junegunn/vim-plug/$(github_commit_before 'junegunn/vim-plug')/plug.vim"
+  mkdir -p "${vim_autoload_dir}"
+  vim_plug_tmp="$(mktemp "${vim_plug_vim}.XXXXXX")"
+  if ! curl -fSL -o "${vim_plug_tmp}" \
+    "https://raw.githubusercontent.com/junegunn/vim-plug/$(github_commit_before 'junegunn/vim-plug')/plug.vim"; then
+    rm -f "${vim_plug_tmp}"
+    return 1
+  fi
+  mv -f "${vim_plug_tmp}" "${vim_plug_vim}"
 
   PINS=$(mktemp "${TMPDIR:-/tmp}/vim-plug-pins.XXXXXX")
   trap 'rm -f "${PINS}"' EXIT
   sed -nE "s/^[[:space:]]*Plug[[:space:]]+['\"]([[:alnum:]_.-]+\/[[:alnum:]_.-]+)['\"][[:space:]]*(\".*)?$/\1/p" "${VIMRC}" \
     | while IFS= read -r repository; do
-        sha="$(github_commit_before "${repository}")"
-        name="${repository##*/}"
-        printf "let g:plugs['%s'].commit = '%s'\n" "${name%.git}" "${sha}"
-      done > "${PINS}"
+      sha="$(github_commit_before "${repository}")"
+      name="${repository##*/}"
+      name="${name%.git}"
+      printf "if has_key(g:plugs, '%s')\n  let g:plugs['%s'].commit = '%s'\nendif\n" \
+        "${name}" "${name}" "${sha}"
+    done > "${PINS}"
 
   "${VIM_BIN_DIR}/vim" -N -u "${VIMRC}" -U NONE -i NONE -e -s \
     -S "${PINS}" -c 'PlugUpdate --sync | qa'
@@ -156,6 +198,7 @@ while [[ ${#} -ge 1 ]]; do
       INSTALL_LUA=1 && shift 1
       ;;
     '--cooldown')
+      [[ ${#} -ge 2 ]] || abort 'option requires an argument: --cooldown'
       COOLDOWN_DAYS="${2}" && shift 2
       ;;
     --cooldown=*)
@@ -195,8 +238,8 @@ while [[ ${#} -ge 1 ]]; do
 done
 
 [[ "${COOLDOWN_DAYS}" =~ ^[0-9]+$ ]] || abort "invalid cooldown: ${COOLDOWN_DAYS}"
-command -v jq >/dev/null || abort 'jq not found'
-CUTOFF_ISO="$(date -u -v-"${COOLDOWN_DAYS}"d '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+command -v jq > /dev/null || abort 'jq not found'
+CUTOFF_ISO="$(date -u -v-"${COOLDOWN_DAYS}"d '+%Y-%m-%dT%H:%M:%SZ' 2> /dev/null \
   || date -u -d "${COOLDOWN_DAYS} days ago" '+%Y-%m-%dT%H:%M:%SZ')"
 
 if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
