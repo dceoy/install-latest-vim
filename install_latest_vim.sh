@@ -3,25 +3,28 @@
 # Build and install the latest version of Vim
 #
 # Usage:
-#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--vim-plug] [--vimrc=<path>]
-#     [--python3=<path>] [<dir>]
-#   install_latest_vim.sh [--debug] --only-plugins [--vimrc=<path>] [<dir>]
+#   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--cooldown=<days>]
+#     [--vim-plug] [--vimrc=<path>] [--python3=<path>] [<dir>]
+#   install_latest_vim.sh [--debug] --only-plugins [--cooldown=<days>]
+#     [--vimrc=<path>] [--python3=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
 #
 # Options:
-#   --debug           Run wdebug mode
-#   -f, --force       Option without an argument
-#   --lua             Install Lua
-#   --vim-plug        Install vim-plug
-#   --only-plugins    Update Vim plugins and exit
-#   --vimrc=<path>    Specify a path to vimrc [default: ~/.vimrc]
-#   --python3=<path>  Specify a path to Python3
-#   --version         Print version
-#   -h, --help        Print usage
+#   --debug                   Run wdebug mode
+#   -f, --force               Option without an argument
+#   --lua                     Install Lua
+#   --cooldown=<days>         Require Vim releases and GitHub plugin revisions to be at least
+#                             this many days old [default: 7]
+#   --vim-plug                Install vim-plug
+#   --only-plugins            Update Vim plugins and exit
+#   --vimrc=<path>            Specify a path to vimrc [default: ~/.vimrc]
+#   --python3=<path>          Specify a path to Python3
+#   --version                 Print version
+#   -h, --help                Print usage
 #
 # Arguments:
-#   <dir>             Directory path where Vim is installed [default: ~/.vim]
+#   <dir>                     Directory path where Vim is installed [default: ~/.vim]
 
 set -euo pipefail
 
@@ -33,13 +36,14 @@ fi
 
 COMMAND_PATH=$(realpath "${0}")
 COMMAND_NAME=$(basename "${COMMAND_PATH}")
-COMMAND_VER='v0.3.0'
+COMMAND_VER='v0.4.0'
 
 FORCE=0
 INSTALL_LUA=0
 INSTALL_VIM_PLUG=0
 UPDATE_VIM_PLUGINS=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
+COOLDOWN_DAYS=7
 VIM_PLUG_UPDATE_NAME='vim_plug_update.sh'
 VIMRC="${HOME}/.vimrc"
 PYTHON3=''
@@ -65,40 +69,78 @@ function abort {
   exit 1
 }
 
-function write_vim_plugin_update {
-  local vim_autoload_dir="${VIM_DIR}/autoload"
-  local vim_plug_vim_url='https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
-  local vim_plug_vim="${vim_autoload_dir}/plug.vim"
+function github_api {
+  local args=(-fsSL -H 'Accept: application/vnd.github+json')
+  local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  [[ -z "${token}" ]] || args+=(-H "Authorization: Bearer ${token}")
+  curl "${args[@]}" "${1}"
+}
 
-  [[ -f "${VIMRC}" ]] || return 1
+function github_commit_before {
+  github_api "https://api.github.com/repos/${1}/commits?until=${CUTOFF_ISO}&per_page=1" \
+    | jq -er '.[0].sha'
+}
+
+function resolve_vim_version {
+  local page=1 tags count low high mid sha date
+  while :; do
+    tags="$(github_api "https://api.github.com/repos/vim/vim/tags?per_page=100&page=${page}")"
+    count="$(jq 'length' <<< "${tags}")"
+    ((count > 0)) || abort 'no Vim release is old enough'
+
+    sha="$(jq -r '.[-1].commit.sha' <<< "${tags}")"
+    date="$(github_api "https://api.github.com/repos/vim/vim/commits/${sha}" \
+      | jq -r '.commit.committer.date')"
+    if [[ "${date}" > "${CUTOFF_ISO}" ]]; then
+      ((page++))
+      continue
+    fi
+
+    low=0
+    high=$((count - 1))
+    while ((low < high)); do
+      mid=$(((low + high) / 2))
+      sha="$(jq -r ".[$mid].commit.sha" <<< "${tags}")"
+      date="$(github_api "https://api.github.com/repos/vim/vim/commits/${sha}" \
+        | jq -r '.commit.committer.date')"
+      if [[ "${date}" > "${CUTOFF_ISO}" ]]; then
+        low=$((mid + 1))
+      else
+        high=${mid}
+      fi
+    done
+    jq -r ".[$low].name | ltrimstr(\"v\")" <<< "${tags}"
+    return
+  done
+}
+
+function update_vim_plugins {
+  local vim_plug_vim="${VIM_DIR}/autoload/plug.vim"
+  local repository sha name
+
+  [[ -f "${VIMRC}" ]] || abort "vimrc not found: ${VIMRC}"
   [[ -x "${VIM_BIN_DIR}/vim" ]] || abort "vim not found or not executable: ${VIM_BIN_DIR}/vim"
 
-  if [[ ! -f "${vim_plug_vim}" ]] || [[ ${FORCE} -eq 1 ]]; then
-    [[ -d "${vim_autoload_dir}" ]] || mkdir -p "${vim_autoload_dir}"
-    curl -fSL -o "${vim_plug_vim}" "${vim_plug_vim_url}"
-  fi
-  {
-    printf '%s\n' '#!/usr/bin/env bash'
-    printf '\n'
-    printf '%s\n' 'set -euo pipefail'
-    printf '\n'
-    printf 'VIM_BIN=%q\n' "${VIM_BIN_DIR}/vim"
-    printf 'VIM_PLUG_VIM=%q\n' "${vim_plug_vim}"
-    printf 'VIM_PLUG_VIM_URL=%q\n' "${vim_plug_vim_url}"
-    printf 'VIMRC=%q\n' "${VIMRC}"
-    printf '\n'
-    printf '%s\n' "if [[ \${#} -gt 0 ]] && [[ \${1} == '--debug' ]]; then"
-    printf '%s\n' '  set -x && shift 1'
-    printf '%s\n' 'fi'
-    printf '\n'
-    printf '%s\n' "[[ \${#} -eq 0 ]] || { echo \"${VIM_PLUG_UPDATE_NAME}: invalid argument: \${1}\" >&2; exit 1; }"
-    printf '\n'
-    printf '%s\n' "if [[ ! -f \"\${VIM_PLUG_VIM}\" ]]; then"
-    printf '%s\n' "  curl -fSL --create-dirs -o \"\${VIM_PLUG_VIM}\" \"\${VIM_PLUG_VIM_URL}\""
-    printf '%s\n' 'fi'
-    printf '\n'
-    printf '%s\n' "\"\${VIM_BIN}\" -N -u \"\${VIMRC}\" -U NONE -i NONE -e -s -c 'PlugUpdate --sync | qa'"
-  } > "${VIM_PLUG_UPDATE}"
+  curl -fSL --create-dirs -o "${vim_plug_vim}" \
+    "https://raw.githubusercontent.com/junegunn/vim-plug/$(github_commit_before 'junegunn/vim-plug')/plug.vim"
+
+  PINS=$(mktemp "${TMPDIR:-/tmp}/vim-plug-pins.XXXXXX")
+  trap 'rm -f "${PINS}"' EXIT
+  sed -nE "s/^[[:space:]]*Plug[[:space:]]+['\"]([[:alnum:]_.-]+\/[[:alnum:]_.-]+)['\"][[:space:]]*(\".*)?$/\1/p" "${VIMRC}" \
+    | while IFS= read -r repository; do
+        sha="$(github_commit_before "${repository}")"
+        name="${repository##*/}"
+        printf "let g:plugs['%s'].commit = '%s'\n" "${name%.git}" "${sha}"
+      done > "${PINS}"
+
+  "${VIM_BIN_DIR}/vim" -N -u "${VIMRC}" -U NONE -i NONE -e -s \
+    -S "${PINS}" -c 'PlugUpdate --sync | qa'
+}
+
+function write_vim_plugin_update {
+  [[ -f "${VIMRC}" ]] || return 1
+  printf '#!/usr/bin/env bash\nexec %q --only-plugins --cooldown=%q --vimrc=%q %q "$@"\n' \
+    "${VIM_INSTALLER}" "${COOLDOWN_DAYS}" "${VIMRC}" "${VIM_DIR}" > "${VIM_PLUG_UPDATE}"
   chmod +x "${VIM_PLUG_UPDATE}"
 }
 
@@ -112,6 +154,12 @@ while [[ ${#} -ge 1 ]]; do
       ;;
     '--lua')
       INSTALL_LUA=1 && shift 1
+      ;;
+    '--cooldown')
+      COOLDOWN_DAYS="${2}" && shift 2
+      ;;
+    --cooldown=*)
+      COOLDOWN_DAYS="${1#*=}" && shift 1
       ;;
     '--vim-plug')
       INSTALL_VIM_PLUG=1 && shift 1
@@ -146,6 +194,11 @@ while [[ ${#} -ge 1 ]]; do
   esac
 done
 
+[[ "${COOLDOWN_DAYS}" =~ ^[0-9]+$ ]] || abort "invalid cooldown: ${COOLDOWN_DAYS}"
+command -v jq >/dev/null || abort 'jq not found'
+CUTOFF_ISO="$(date -u -v-"${COOLDOWN_DAYS}"d '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+  || date -u -d "${COOLDOWN_DAYS} days ago" '+%Y-%m-%dT%H:%M:%SZ')"
+
 if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
   VIM_DIR="${MAIN_ARGS[0]}"
 else
@@ -157,9 +210,13 @@ VIM_SRC_DIR="${VIM_DIR}/src"
 VIM_VER_TXT="${VIM_DIR}/VERSION.txt"
 VIM_SRC_VIM_DIR="${VIM_SRC_DIR}/vim"
 
+[[ -d "${VIM_BIN_DIR}" ]] || mkdir -p "${VIM_BIN_DIR}"
+VIM_INSTALLER="$(realpath "${VIM_BIN_DIR}")/install_latest_vim.sh"
+
 if [[ ${UPDATE_VIM_PLUGINS} -eq 1 ]]; then
+  [[ "${COMMAND_PATH}" = "${VIM_INSTALLER}" ]] || cp -a "${COMMAND_PATH}" "${VIM_INSTALLER}"
   write_vim_plugin_update || abort "vimrc not found: ${VIMRC}"
-  "${VIM_PLUG_UPDATE}"
+  update_vim_plugins
   exit 0
 fi
 
@@ -171,15 +228,13 @@ if [[ -z "${PYTHON3}" ]]; then
   elif [[ -f '/usr/bin/python3' ]]; then
     PYTHON3='/usr/bin/python3'
   else
-    PYTHON3="$(which python3)"
+    PYTHON3="$(command -v python3)"
   fi
 fi
 
-[[ -d "${VIM_BIN_DIR}" ]] || mkdir -p "${VIM_BIN_DIR}"
 [[ -d "${VIM_SRC_DIR}" ]] || mkdir -p "${VIM_SRC_DIR}"
 
 # install-latest-vim
-VIM_INSTALLER="$(realpath "${VIM_BIN_DIR}")/install_latest_vim.sh"
 [[ "${COMMAND_PATH}" = "${VIM_INSTALLER}" ]] || cp -a "${COMMAND_PATH}" "${VIM_INSTALLER}"
 
 # Lua
@@ -220,7 +275,7 @@ fi
 
 # Vim
 VIM_CURRENT_VER="$([[ -f "${VIM_VER_TXT}" ]] && cat "${VIM_VER_TXT}" || echo -n)"
-VIM_LATEST_VER="$(curl -sSL 'https://api.github.com/repos/vim/vim/tags' | grep -oe '"name": \+"v[0-9\.]\+' | head -1 | cut -d v -f 2)"
+VIM_LATEST_VER="$(resolve_vim_version)"
 if [[ ! -f "${VIM_BIN_DIR}/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
   if [[ -d "${VIM_SRC_VIM_DIR}" ]]; then
     cd "${VIM_SRC_VIM_DIR}"

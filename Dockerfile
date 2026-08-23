@@ -37,7 +37,7 @@ RUN \
       apt-get -y update \
       && apt-get -y upgrade \
       && apt-get -y install --no-install-recommends --no-install-suggests \
-        ca-certificates curl gcc git libc6-dev libncurses-dev make \
+        ca-certificates curl gcc git jq libc6-dev libncurses-dev make \
         "python${PYTHON_VERSION}-dev"
 
 RUN \
@@ -98,7 +98,7 @@ RUN \
       apt-get -y update \
       && apt-get -y upgrade \
       && apt-get -y install --no-install-recommends --no-install-suggests \
-        ca-certificates curl git "python${PYTHON_VERSION}"
+        ca-certificates curl git jq "python${PYTHON_VERSION}"
 
 RUN \
       groupadd --gid "${USER_GID}" "${USER_NAME}" \
