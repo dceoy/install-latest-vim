@@ -15,7 +15,7 @@
 #   -f, --force               Option without an argument
 #   --lua                     Install Lua
 #   --cooldown=<days>         Require Vim releases and GitHub plugin revisions to be at least
-#                             this many days old [default: 7]
+#                             this many days old [default: 1]
 #   --vim-plug                Install vim-plug
 #   --only-plugins            Update Vim plugins and exit
 #   --vimrc=<path>            Specify a path to vimrc [default: ~/.vimrc]
@@ -27,6 +27,19 @@
 #   <dir>                     Directory path where Vim is installed [default: ~/.vim]
 
 set -euo pipefail
+
+_xtrace=0
+if [[ $- == *x* ]]; then
+  _xtrace=1
+  set +x
+fi
+GITHUB_API_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+export -n GITHUB_API_TOKEN
+unset GITHUB_TOKEN GH_TOKEN
+if ((_xtrace)); then
+  set -x
+fi
+unset _xtrace
 
 if [[ ${#} -ge 1 ]]; then
   for a in "${@}"; do
@@ -43,7 +56,7 @@ INSTALL_LUA=0
 INSTALL_VIM_PLUG=0
 UPDATE_VIM_PLUGINS=0
 DEFAULT_VIM_DIR="${HOME}/.vim"
-COOLDOWN_DAYS=7
+COOLDOWN_DAYS=1
 VIM_PLUG_UPDATE_NAME='vim_plug_update.sh'
 VIMRC="${HOME}/.vimrc"
 PYTHON3=''
@@ -72,10 +85,13 @@ function abort {
 function github_api {
   (
     set +x
-    local auth=()
-    [[ -z "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]] \
-      || auth=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN}}")
-    curl -fsSL -H 'Accept: application/vnd.github+json' "${auth[@]}" "${1}"
+    local args=(-fsSL -H 'Accept: application/vnd.github+json')
+    if [[ -n "${GITHUB_API_TOKEN}" ]]; then
+      printf 'Authorization: Bearer %s\n' "${GITHUB_API_TOKEN}" \
+        | curl "${args[@]}" -H @- "${1}"
+    else
+      curl "${args[@]}" "${1}"
+    fi
   )
 }
 
@@ -126,16 +142,24 @@ function resolve_vim_version {
 }
 
 function update_vim_plugins {
-  local vim_plug_vim="${VIM_DIR}/autoload/plug.vim" pins repository name sha status
+  local vim_plug_vim="${VIM_DIR}/autoload/plug.vim" vim_plug_tmp pins repository name sha status
 
   [[ -f "${VIMRC}" ]] || abort "vimrc not found: ${VIMRC}"
   [[ -x "${VIM_BIN_DIR}/vim" ]] || abort "vim not found or not executable: ${VIM_BIN_DIR}/vim"
 
-  curl -fSL --create-dirs -o "${vim_plug_vim}" \
-    "https://raw.githubusercontent.com/junegunn/vim-plug/$(github_commit_before 'junegunn/vim-plug')/plug.vim"
+  mkdir -p "${vim_plug_vim%/*}"
+  vim_plug_tmp="$(mktemp "${vim_plug_vim}.XXXXXX")"
+  sha="$(github_commit_before 'junegunn/vim-plug')"
+  if ! curl -fSL -o "${vim_plug_tmp}" \
+    "https://raw.githubusercontent.com/junegunn/vim-plug/${sha}/plug.vim" \
+    || ! chmod 0644 "${vim_plug_tmp}" || ! mv -f "${vim_plug_tmp}" "${vim_plug_vim}"; then
+    rm -f "${vim_plug_tmp}"
+    return 1
+  fi
 
   pins="$(mktemp "${TMPDIR:-/tmp}/vim-plug-pins.XXXXXX")"
   while read -r repository; do
+    repository="${repository%.git}"
     name="${repository##*/}"
     sha="$(github_commit_before "${repository}")"
     printf "if has_key(g:plugs, '%s')\n  let g:plugs['%s'].commit = '%s'\nendif\n" \
