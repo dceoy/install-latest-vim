@@ -142,7 +142,7 @@ function resolve_vim_version {
 }
 
 function update_vim_plugins {
-  local vim_plug_vim="${VIM_DIR}/autoload/plug.vim" vim_plug_tmp pins repository name sha status
+  local vim_plug_vim="${VIM_DIR}/autoload/plug.vim" vim_plug_tmp pins repository name sha status=0
 
   [[ -f "${VIMRC}" ]] || abort "vimrc not found: ${VIMRC}"
   [[ -x "${VIM_BIN_DIR}/vim" ]] || abort "vim not found or not executable: ${VIM_BIN_DIR}/vim"
@@ -170,12 +170,9 @@ function update_vim_plugins {
   ) > "${pins}"
 
   "${VIM_BIN_DIR}/vim" -N -u "${VIMRC}" -U NONE -i NONE -e -s \
-    -S "${pins}" -c 'PlugUpdate --sync | qa' || {
-    status=$?
-    rm -f "${pins}"
-    return "${status}"
-  }
+    -S "${pins}" -c 'PlugUpdate --sync | qa' || status=$?
   rm -f "${pins}"
+  return "${status}"
 }
 
 function write_vim_plugin_update {
