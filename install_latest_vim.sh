@@ -14,8 +14,8 @@
 #   --debug                   Run wdebug mode
 #   -f, --force               Option without an argument
 #   --lua                     Install Lua
-#   --cooldown=<days>         Require Vim releases and GitHub plugin revisions to be at least
-#                             this many days old [default: 1]
+#   --cooldown=<days>         Require Vim releases, vim-plug, and simple GitHub plugins in the
+#                             selected vimrc to be at least this many days old [default: 1]
 #   --vim-plug                Install vim-plug
 #   --only-plugins            Update Vim plugins and exit
 #   --vimrc=<path>            Specify a path to vimrc [default: ~/.vimrc]
