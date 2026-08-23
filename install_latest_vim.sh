@@ -6,7 +6,7 @@
 #   install_latest_vim.sh [--debug] [-f|--force] [--lua] [--cooldown=<days>]
 #     [--vim-plug] [--vimrc=<path>] [--python3=<path>] [<dir>]
 #   install_latest_vim.sh [--debug] --only-plugins [--cooldown=<days>]
-#     [--vimrc=<path>] [--python3=<path>] [<dir>]
+#     [--vimrc=<path>] [<dir>]
 #   install_latest_vim.sh --version
 #   install_latest_vim.sh -h|--help
 #
@@ -142,7 +142,7 @@ function resolve_vim_version {
         high=${mid}
       fi
     done
-    jq -r ".[$low].name | ltrimstr(\"v\")" <<< "${tags}"
+    jq -r ".[$low] | [(.name | ltrimstr(\"v\")), .commit.sha] | @tsv" <<< "${tags}"
     return
   done
 }
@@ -172,9 +172,9 @@ function update_vim_plugins {
   trap 'rm -f "${PINS}"' EXIT
   sed -nE "s/^[[:space:]]*Plug[[:space:]]+['\"]([[:alnum:]_.-]+\/[[:alnum:]_.-]+)['\"][[:space:]]*(\".*)?$/\1/p" "${VIMRC}" \
     | while IFS= read -r repository; do
+      repository="${repository%.git}"
       sha="$(github_commit_before "${repository}")"
       name="${repository##*/}"
-      name="${name%.git}"
       printf "if has_key(g:plugs, '%s')\n  let g:plugs['%s'].commit = '%s'\nendif\n" \
         "${name}" "${name}" "${sha}"
     done > "${PINS}"
@@ -251,10 +251,10 @@ if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
 else
   VIM_DIR="${DEFAULT_VIM_DIR}"
 fi
-if [[ "${VIM_DIR}" != /* ]]; then
+if [[ "${VIM_DIR}" != /* && "${VIM_DIR}" != [[:alpha:]]:/* ]]; then
   VIM_DIR="${PWD}/${VIM_DIR}"
 fi
-if [[ "${VIMRC}" != /* ]]; then
+if [[ "${VIMRC}" != /* && "${VIMRC}" != [[:alpha:]]:/* ]]; then
   VIMRC="${PWD}/${VIMRC}"
 fi
 VIM_BIN_DIR="${VIM_DIR}/bin"
@@ -328,20 +328,22 @@ fi
 
 # Vim
 VIM_CURRENT_VER="$([[ -f "${VIM_VER_TXT}" ]] && cat "${VIM_VER_TXT}" || echo -n)"
-VIM_LATEST_VER="$(resolve_vim_version)"
+VIM_LATEST_INFO="$(resolve_vim_version)"
+IFS=$'\t' read -r VIM_LATEST_VER VIM_LATEST_SHA <<< "${VIM_LATEST_INFO}"
 if [[ ! -f "${VIM_BIN_DIR}/vim" ]] || [[ "${VIM_CURRENT_VER}" != "${VIM_LATEST_VER}" ]] || [[ ${FORCE} -eq 1 ]]; then
   if [[ -d "${VIM_SRC_VIM_DIR}" ]]; then
     cd "${VIM_SRC_VIM_DIR}"
     make distclean && cd .. && rm -rf "${VIM_SRC_VIM_DIR}"
   fi
-  if [[ -d "${VIM_SRC_VIM_DIR}-${VIM_LATEST_VER}" ]]; then
-    rm -rf "${VIM_SRC_VIM_DIR}-${VIM_LATEST_VER}"
+  VIM_SRC_VIM_ARCHIVE_DIR="${VIM_SRC_DIR}/vim-${VIM_LATEST_SHA}"
+  if [[ -d "${VIM_SRC_VIM_ARCHIVE_DIR}" ]]; then
+    rm -rf "${VIM_SRC_VIM_ARCHIVE_DIR}"
   fi
   curl -sSL -o "${VIM_SRC_DIR}/vim.tar.gz" \
-    "https://github.com/vim/vim/archive/refs/tags/v${VIM_LATEST_VER}.tar.gz"
+    "https://github.com/vim/vim/archive/${VIM_LATEST_SHA}.tar.gz"
   tar xvf "${VIM_SRC_DIR}/vim.tar.gz" -C "${VIM_SRC_DIR}" \
     && rm -f "${VIM_SRC_DIR}/vim.tar.gz" \
-    && mv "${VIM_SRC_VIM_DIR}-${VIM_LATEST_VER}" "${VIM_SRC_VIM_DIR}"
+    && mv "${VIM_SRC_VIM_ARCHIVE_DIR}" "${VIM_SRC_VIM_DIR}"
   cd "${VIM_SRC_VIM_DIR}"
   ./configure \
     --prefix="${VIM_DIR}" \
