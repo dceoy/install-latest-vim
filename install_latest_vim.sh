@@ -28,6 +28,19 @@
 
 set -euo pipefail
 
+pr_xtrace=0
+if [[ $- == *x* ]]; then
+  pr_xtrace=1
+  set +x
+fi
+GITHUB_API_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+export -n GITHUB_API_TOKEN
+unset GITHUB_TOKEN GH_TOKEN
+if ((pr_xtrace)); then
+  set -x
+fi
+unset pr_xtrace
+
 if [[ ${#} -ge 1 ]]; then
   for a in "${@}"; do
     [[ "${a}" = '--debug' ]] && set -x && break
@@ -77,7 +90,7 @@ function github_api {
     xtrace=1
     set +x
   fi
-  token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  token="${GITHUB_API_TOKEN}"
   if [[ -z "${token}" ]]; then
     if curl "${args[@]}" "${1}"; then
       status=0
@@ -190,6 +203,16 @@ function write_vim_plugin_update {
   chmod +x "${VIM_PLUG_UPDATE}"
 }
 
+function absolute_path {
+  if [[ "${1}" = /* ]] || {
+    [[ "${OSTYPE}" = msys* || "${OSTYPE}" = cygwin* ]] && [[ "${1}" = [[:alpha:]]:/* ]]
+  }; then
+    printf '%s\n' "${1}"
+  else
+    printf '%s/%s\n' "${PWD}" "${1}"
+  fi
+}
+
 while [[ ${#} -ge 1 ]]; do
   case "${1}" in
     '--debug')
@@ -251,12 +274,8 @@ if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
 else
   VIM_DIR="${DEFAULT_VIM_DIR}"
 fi
-if [[ "${VIM_DIR}" != /* && "${VIM_DIR}" != [[:alpha:]]:/* ]]; then
-  VIM_DIR="${PWD}/${VIM_DIR}"
-fi
-if [[ "${VIMRC}" != /* && "${VIMRC}" != [[:alpha:]]:/* ]]; then
-  VIMRC="${PWD}/${VIMRC}"
-fi
+VIM_DIR="$(absolute_path "${VIM_DIR}")"
+VIMRC="$(absolute_path "${VIMRC}")"
 VIM_BIN_DIR="${VIM_DIR}/bin"
 VIM_PLUG_UPDATE="${VIM_BIN_DIR}/${VIM_PLUG_UPDATE_NAME}"
 VIM_SRC_DIR="${VIM_DIR}/src"
