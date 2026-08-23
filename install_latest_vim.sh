@@ -92,9 +92,10 @@ function github_tag_date {
   case "${type}" in
     tag)
       tag_object="$(github_api "https://api.github.com/repos/${repository}/git/tags/${object}")"
-      [[ "$(jq -r '.object.type' <<< "${tag_object}")" = 'commit' ]] \
-        && [[ "$(jq -r '.object.sha' <<< "${tag_object}")" = "${sha}" ]] \
-        || abort "tag target changed or is not a commit: ${repository} ${tag}"
+      if [[ "$(jq -r '.object.type' <<< "${tag_object}")" != 'commit' ]] \
+        || [[ "$(jq -r '.object.sha' <<< "${tag_object}")" != "${sha}" ]]; then
+        abort "tag target changed or is not a commit: ${repository} ${tag}"
+      fi
       jq -er '.tagger.date' <<< "${tag_object}"
       ;;
     commit)
