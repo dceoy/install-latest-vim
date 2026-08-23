@@ -162,6 +162,10 @@ function update_vim_plugins {
     rm -f "${vim_plug_tmp}"
     return 1
   fi
+  if ! chmod 0644 "${vim_plug_tmp}"; then
+    rm -f "${vim_plug_tmp}"
+    return 1
+  fi
   mv -f "${vim_plug_tmp}" "${vim_plug_vim}"
 
   PINS=$(mktemp "${TMPDIR:-/tmp}/vim-plug-pins.XXXXXX")
@@ -246,6 +250,12 @@ if [[ ${#MAIN_ARGS[@]} -gt 0 ]]; then
   VIM_DIR="${MAIN_ARGS[0]}"
 else
   VIM_DIR="${DEFAULT_VIM_DIR}"
+fi
+if [[ "${VIM_DIR}" != /* ]]; then
+  VIM_DIR="${PWD}/${VIM_DIR}"
+fi
+if [[ "${VIMRC}" != /* ]]; then
+  VIMRC="${PWD}/${VIMRC}"
 fi
 VIM_BIN_DIR="${VIM_DIR}/bin"
 VIM_PLUG_UPDATE="${VIM_BIN_DIR}/${VIM_PLUG_UPDATE_NAME}"
