@@ -15,7 +15,7 @@ Installer for the latest version of Vim
 
 2.  Build and install Vim.
 
-    Vim releases, vim-plug, and simple GitHub plugins (`Plug 'owner/repo'`) must be at least 7 days old by default. Annotated Vim tags use their tagger timestamp; lightweight tags use the validated target commit timestamp because they have no tag creation metadata. Set `--cooldown=0` to disable the cooldown. Plugin entries with options and non-GitHub plugins keep their existing vim-plug behavior.
+    Vim releases, vim-plug, and simple GitHub plugin declarations written directly in the selected vimrc (`Plug 'owner/repo'`) must be at least 1 day old by default. Annotated Vim tags use their tagger timestamp; lightweight tags use the validated target commit timestamp because they have no tag creation metadata. Set `--cooldown=0` to disable the cooldown. Plugin declarations loaded from sourced files, entries with options, and non-GitHub plugins keep their existing vim-plug behavior.
 
     Install Vim into `~/.vim/bin/vim`.
 
