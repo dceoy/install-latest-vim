@@ -13,7 +13,7 @@ git ls-files -z -- '*.sh' '*.bash' '*.bats' \
   | xargs -0 -t shfmt --write --indent=2 --binary-next-line --case-indent --space-redirects
 git ls-files -z -- '*.sh' '*.bash' '*.bats' \
   | xargs -0 -t shellcheck
-pnpm dlx prettier --write './**/*.md'
+pnpm dlx oxfmt --write './**/*.md'
 uvx zizmor --fix=safe .github/workflows
 git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' | xargs -0 -t actionlint
 git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' | xargs -0 -t uvx yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
