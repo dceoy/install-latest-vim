@@ -9,12 +9,24 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - '*'
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: daily
+    groups:
+      docker-dependencies:
+        patterns:
+          - '*'
   - package-ecosystem: docker-compose
     directory: /
     schedule:
       interval: daily
     open-pull-requests-limit: 10
+    groups:
+      docker-compose-dependencies:
+        patterns:
+          - '*'
