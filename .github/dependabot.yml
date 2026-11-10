@@ -15,24 +15,3 @@ updates:
           - '*'
     cooldown:
       default-days: 1
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: daily
-    groups:
-      docker-dependencies:
-        patterns:
-          - '*'
-    cooldown:
-      default-days: 1
-  - package-ecosystem: docker-compose
-    directory: /
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    groups:
-      docker-compose-dependencies:
-        patterns:
-          - '*'
-    cooldown:
-      default-days: 1
